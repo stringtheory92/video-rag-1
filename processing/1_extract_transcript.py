@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import os
 import json
-import whisper
-import argparse
+# import whisper
+# import argparse
 import subprocess
 import tempfile
 from loguru import logger
@@ -16,21 +16,29 @@ load_dotenv()
 
 
 
-def extract_audio_from_video(video_path: str):
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
-        temp_audio_path = temp_audio.name
+def extract_audio_from_video(video_path: str, output_dir: str = None):
+    logger.info(f"Creating audio file from {video_path}")
     
-    try:
+    # Get base name without extension
+    base_filename = os.path.splitext(os.path.basename(video_path))[0]
+    audio_filename = f"{base_filename}_audio.wav"
+    
+    # Determine output directory
+    output_dir = output_dir or os.path.dirname(video_path)
+    audio_path = os.path.join(output_dir, audio_filename)
 
+    try:
+        logger.info("Beginning audio extraction")
         subprocess.run([
-            "ffmpeg", "-i", video_path, "-vn", "-acodec", "pcm_s16le", 
-            "-ar", "16000", "-ac", "1", temp_audio_path
-        ], check=True, capture_output=True)
+            "ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "pcm_s16le", 
+            "-ar", "16000", "-ac", "1", audio_path
+        ], check=True)
+        logger.info(f"Extraction complete: {audio_path}")
     except Exception as e:
         print(f"Error extracting audio from video: {e}")
         return None
-    return temp_audio_path
-
+    
+    return audio_path
 
 
 
@@ -39,13 +47,6 @@ def extract_transcript(audio_path: str, video_path: str, output_dir: str):
     client = OpenAI()
     
     try:
-        # # Load the Whisper model (using the small model for speed; adjust as needed)
-        # print("Loading Whisper model...")
-        # model = whisper.load_model("small")
-        # # Transcribe the video.
-        # print(f"Transcribing video: {video_path}")
-        # result = model.transcribe(video_path)
-
         audio_file = open(audio_path, "rb")
 
         transcription = client.audio.transcriptions.create(
@@ -87,3 +88,4 @@ if __name__ == "__main__":
     
     # extract_transcript(args.video_path, args.output_dir)
     logger.info(os.environ.get("RAW_VIDEOS_PATH"))
+    extract_audio_from_video(os.environ.get("RAW_VIDEOS_PATH"))
